@@ -194,7 +194,6 @@ def train_fold(
             f"Epoch {epoch+1}/{epochs} completed in {time.time() - start_time:.2f}s"
         )
 
-    model_name = model.__class__.__name__.lower()
     model_path = f"outputs/models/{model_name}_fold{fold_id}.pth"
     try:
         os.makedirs(os.path.dirname(model_path), exist_ok=True)
