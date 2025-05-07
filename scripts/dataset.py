@@ -28,14 +28,15 @@ class GliomaPatchDataset(Dataset):
         image_size (int): Desired image size for resizing (height, width). Default is 64.
     """
 
-    def __init__(self, index_csv: str, patches_dir: str, transform=None, image_size: int = 64) -> None:
+    def __init__(
+        self, index_csv: str, patches_dir: str, transform=None, image_size: int = 64
+    ) -> None:
         self.data = pd.read_csv(index_csv)
         self.patches_dir = patches_dir
         self.label_map = LABEL_MAP
-        self.transform = transform or T.Compose([
-            T.Resize((image_size, image_size)),
-            T.ToTensor()
-        ])
+        self.transform = transform or T.Compose(
+            [T.Resize((image_size, image_size)), T.ToTensor()]
+        )
 
     def __len__(self) -> int:
         """Return the number of samples in the dataset."""
@@ -52,8 +53,8 @@ class GliomaPatchDataset(Dataset):
             tuple: (transformed image tensor, label)
         """
         row = self.data.iloc[idx]
-        img_path = os.path.join(self.patches_dir, row['filename'])
-        label_raw = row['label']
+        img_path = os.path.join(self.patches_dir, row["filename"])
+        label_raw = row["label"]
         try:
             label = int(label_raw)
         except ValueError:
@@ -63,7 +64,7 @@ class GliomaPatchDataset(Dataset):
             raise ValueError(f"Invalid label '{label_raw}' at index {idx}")
 
         try:
-            image = Image.open(img_path).convert('RGB')
+            image = Image.open(img_path).convert("RGB")
         except Exception as e:
             raise RuntimeError(f"Failed to load image {img_path}: {e}")
 
@@ -72,4 +73,6 @@ class GliomaPatchDataset(Dataset):
         return image, label
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(samples={len(self)}, dir='{self.patches_dir}')"
+        return (
+            f"{self.__class__.__name__}(samples={len(self)}, dir='{self.patches_dir}')"
+        )

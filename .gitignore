@@ -1,4 +1,7 @@
 dataset
 build
 outputs
+annotations
+playground
+.idea
 __pycache__

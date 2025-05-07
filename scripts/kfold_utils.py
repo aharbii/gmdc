@@ -14,7 +14,9 @@ from utils.log_utils import get_logger
 logger = get_logger(__name__, "kfold_utils.log")
 
 
-def generate_stratified_folds(index_csv_path: str, n_splits: int = 5, seed: int = 42, output_csv: str = None) -> tuple[dict, pd.DataFrame]:
+def generate_stratified_folds(
+    index_csv_path: str, n_splits: int = 5, seed: int = 42, output_csv: str = None
+) -> tuple[dict, pd.DataFrame]:
     """
     Generates stratified k-fold splits and assigns fold indices.
 
@@ -44,23 +46,20 @@ def generate_stratified_folds(index_csv_path: str, n_splits: int = 5, seed: int 
     for current_fold in range(n_splits):
         test_fold = current_fold
         val_fold = (current_fold + 1) % n_splits
-        train_folds = [f for f in range(n_splits) if f not in [
-            test_fold, val_fold]]
+        train_folds = [f for f in range(n_splits) if f not in [test_fold, val_fold]]
 
         train_df = df[df.fold.isin(train_folds)].copy()
         val_df = df[df.fold == val_fold].copy()
         test_df = df[df.fold == test_fold].copy()
 
-        fold_sets[current_fold] = {
-            "train": train_df,
-            "val": val_df,
-            "test": test_df
-        }
+        fold_sets[current_fold] = {"train": train_df, "val": val_df, "test": test_df}
 
         logger.info(
-            f"Fold {current_fold}: Train={len(train_df)}, Val={len(val_df)}, Test={len(test_df)}")
+            f"Fold {current_fold}: Train={len(train_df)}, Val={len(val_df)}, Test={len(test_df)}"
+        )
         logger.info(
-            f"Fold {current_fold}: Test={test_fold}, Val={val_fold}, Train={train_folds}")
+            f"Fold {current_fold}: Test={test_fold}, Val={val_fold}, Train={train_folds}"
+        )
 
     fold_csv_path = output_csv or index_csv_path.replace(".csv", "_folds.csv")
     try:

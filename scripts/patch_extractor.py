@@ -10,9 +10,12 @@ import cv2
 import numpy as np
 import argparse
 from pathlib import Path
+import pandas as pd
 from tqdm import tqdm
 
+from configs.constants import SUBMISSION_DIR
 from utils.log_utils import get_logger
+from utils.plot_utils import plot_patches_distribution
 
 logger = get_logger(__name__, "patch_extractor.log")
 
@@ -28,7 +31,7 @@ def load_json(json_path: Path) -> dict:
         dict: Parsed JSON content.
     """
     try:
-        with open(json_path, 'r') as f:
+        with open(json_path, "r") as f:
             return json.load(f)
     except Exception as e:
         logger.exception(f"Failed to load JSON file {json_path}: {e}")
@@ -50,7 +53,9 @@ def get_centroid(points: np.ndarray) -> tuple[int, int]:
     return int(round(centroid[0])), int(round(centroid[1]))
 
 
-def extract_patch(image: np.ndarray, center_x: int, center_y: int, size: int) -> np.ndarray:
+def extract_patch(
+    image: np.ndarray, center_x: int, center_y: int, size: int
+) -> np.ndarray:
     """
     Extract a fixed-size patch centered on (center_x, center_y).
 
@@ -79,7 +84,14 @@ def extract_patch(image: np.ndarray, center_x: int, center_y: int, size: int) ->
     patch = image[y1:y2, x1:x2]
     if pad_x1 or pad_y1 or pad_x2 or pad_y2:
         patch = cv2.copyMakeBorder(
-            patch, pad_y1, pad_y2, pad_x1, pad_x2, borderType=cv2.BORDER_CONSTANT, value=0)
+            patch,
+            pad_y1,
+            pad_y2,
+            pad_x1,
+            pad_x2,
+            borderType=cv2.BORDER_CONSTANT,
+            value=0,
+        )
     return patch
 
 
@@ -99,11 +111,20 @@ def process_dataset(image_dir: str, output_dir: str, patch_size: int = 64) -> No
     index_lines = ["filename,label"]
 
     json_paths = sorted(image_dir.glob("*.json"))
+
+    patches_data = {
+        "Mitosis": 0,
+        "Non-mitosis": 0,
+    }
+
     for json_path in tqdm(json_paths, desc="Extracting patches"):
         try:
             annotation = load_json(json_path)
-            image_name = annotation.get(
-                "imagePath", json_path.stem + ".jpg").replace("\\", "/").split("/")[-1]
+            image_name = (
+                annotation.get("imagePath", json_path.stem + ".jpg")
+                .replace("\\", "/")
+                .split("/")[-1]
+            )
             image_path = image_dir / image_name
 
             image = cv2.imread(str(image_path))
@@ -119,11 +140,13 @@ def process_dataset(image_dir: str, output_dir: str, patch_size: int = 64) -> No
             scale_y = img_h / ann_h
 
             for i, shape in enumerate(annotation.get("shapes", [])):
-                label = shape.get("label", "").lower()
+                label = shape.get("label", "")
+                patches_data[label] += 1
+
+                label = label.lower()
                 label_int = 1 if label == "mitosis" else 0
 
-                raw_points = np.array(
-                    shape.get("points", []), dtype=np.float32)
+                raw_points = np.array(shape.get("points", []), dtype=np.float32)
                 raw_points *= [scale_x, scale_y]
 
                 cx, cy = get_centroid(raw_points)
@@ -137,6 +160,7 @@ def process_dataset(image_dir: str, output_dir: str, patch_size: int = 64) -> No
         except Exception as e:
             logger.exception(f"Failed to process {json_path}: {e}")
 
+    plot_patches_distribution(patches_data, SUBMISSION_DIR)
     csv_path = output_dir / "patches_index.csv"
     with open(csv_path, "w") as f:
         f.write("\n".join(index_lines))
@@ -145,13 +169,23 @@ def process_dataset(image_dir: str, output_dir: str, patch_size: int = 64) -> No
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Extract image patches centered on polygon centroids.")
-    parser.add_argument("--image_dir", type=str, required=True,
-                        help="Path to the image and JSON annotation directory.")
-    parser.add_argument("--output_dir", type=str, required=True,
-                        help="Directory to save extracted patches and index CSV.")
-    parser.add_argument("--patch_size", type=int, default=64,
-                        help="Size of each square patch.")
+        description="Extract image patches centered on polygon centroids."
+    )
+    parser.add_argument(
+        "--image_dir",
+        type=str,
+        required=True,
+        help="Path to the image and JSON annotation directory.",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        required=True,
+        help="Directory to save extracted patches and index CSV.",
+    )
+    parser.add_argument(
+        "--patch_size", type=int, default=64, help="Size of each square patch."
+    )
     args = parser.parse_args()
 
     process_dataset(args.image_dir, args.output_dir, args.patch_size)

@@ -8,7 +8,6 @@ Includes logging and basic error handling for forward pass and instantiation.
 import logging
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torchvision.models as models
 
 from configs.constants import MODEL_NAMES, NUM_CLASSES
@@ -76,6 +75,91 @@ class CustomCNN(nn.Module):
         return f"{self.__class__.__name__}(input=64x64x3, output={self.classifier[-1].out_features})"
 
 
+# Implementation of the revised CustomCNNv2 architecture with enhanced depth, additional layers,
+# dropout, and fully connected layers for increased capacity and regularization.
+
+
+class CustomCNNv2(nn.Module):
+    """
+    CustomCNNv2 - A deeper CNN architecture for glioma mitosis classification.
+
+    This version incorporates additional convolutional layers, more pooling, and multiple
+    fully connected layers with dropout for regularization.
+
+    Args:
+        input_size (int): Size of the input image (assumed square). Default is 64.
+        num_classes (int): Number of output classes. Default is NUM_CLASSES.
+
+    Attributes:
+        features (nn.Sequential): Convolutional and pooling layers for feature extraction.
+        classifier (nn.Sequential): Fully connected layers for classification.
+    """
+
+    def __init__(self, input_size: int = 64, num_classes: int = NUM_CLASSES) -> None:
+        super(CustomCNNv2, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(512, 1024, kernel_size=3, padding=1),
+            nn.BatchNorm2d(1024),
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d(1),
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Dropout(0.5),
+            nn.Linear(1024, 512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(256, num_classes),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass of CustomCNNv2.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (B, 3, input_size, input_size).
+
+        Returns:
+            torch.Tensor: Output logits of shape (B, num_classes).
+        """
+        try:
+            x = self.features(x)
+            x = self.classifier(x)
+            return x
+        except Exception as e:
+            logger.error(
+                f"Error during forward pass in CustomCNNv2: {e}", exc_info=True
+            )
+            raise
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(input=64x64x3, output={self.classifier[-1].out_features})"
+
+
 def get_model(
     model_name: str,
     num_classes: int = NUM_CLASSES,
@@ -107,6 +191,8 @@ def get_model(
 
         if model_name == "customcnn":
             model = CustomCNN(num_classes=num_classes)
+        elif model_name == "customcnn_v2":
+            model = CustomCNNv2(num_classes=num_classes)
 
         elif model_name == "resnet18":
             weights = models.ResNet18_Weights.DEFAULT if pretrained else None

@@ -12,21 +12,27 @@ PATCH_SIZE = 64
 FOLDS_COUNT = 5
 DATASET_PATH = "dataset/Data_122824"
 TRAINING_PATH = os.path.join(DATASET_PATH, "Glioma_MDC_2025_training")
+TESTING_PATH = os.path.join(DATASET_PATH, "Glioma_MDC_2025_test")
 NUM_CLASSES = 2
 LABEL_MAP = {"Non-mitosis": 0, "Mitosis": 1}
 
 # Output Directories
-OUTPUTS_BASE = "outputs"
-VISUAL_ANNOTATION_DIR = os.path.join(OUTPUTS_BASE, "visualizations", "polygon_visuals")
-PATCHED_DIR = os.path.join(OUTPUTS_BASE, "patches")
-
-# Timestamped Logging
 TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
-LOG_DIR = os.path.join(OUTPUTS_BASE, "logs", TIMESTAMP)
+OUTPUTS_DIR = "outputs"
+OUTPUTS_BASE = os.path.join(OUTPUTS_DIR, TIMESTAMP)
+VISUAL_ANNOTATION_DIR = os.path.join(OUTPUTS_BASE, "annotations")
+PATCHED_DIR = os.path.join(OUTPUTS_BASE, "patches")
+TRAIN_PATCH_DIR = os.path.join(PATCHED_DIR, "train")
+TEST_PATCH_DIR = os.path.join(PATCHED_DIR, "test")
+LOG_DIR = os.path.join(OUTPUTS_BASE, "logs")
+MODELS_DIR = os.path.join(OUTPUTS_BASE, "models")
+FOLDS_DIR = os.path.join(OUTPUTS_BASE, "folds")
+SUBMISSION_DIR = os.path.join(OUTPUTS_BASE, "submission")
 
 # MODELS
 MODEL_NAMES = [
     "customcnn",
+    "customcnn_v2",
     "resnet18",
     "resnet34",
     "resnet50",
@@ -38,3 +44,5 @@ MODEL_NAMES = [
     "convnext_small",
     "vgg16_bn",
 ]
+
+SELECTED_MODEL_NAMES = ["customcnn", "customcnn_v2", "resnet50", "efficientnet_b2"]

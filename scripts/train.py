@@ -13,7 +13,6 @@ Usage:
 """
 
 
-import matplotlib.pyplot as plt
 from scripts.model import get_model
 import torch
 import torch.nn as nn
@@ -21,12 +20,22 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, f1_score
 from scripts.dataset import GliomaPatchDataset
+from scripts.validate import validate
 from utils.log_utils import get_logger
 import os
-from configs.constants import NUM_CLASSES
+from configs.constants import (
+    FOLDS_DIR,
+    MODELS_DIR,
+    NUM_CLASSES,
+    SUBMISSION_DIR,
+    TEST_PATCH_DIR,
+    TRAIN_PATCH_DIR,
+)
 import pandas as pd
 import argparse
 import time
+
+from utils.plot_utils import plot_metric
 
 
 logger = get_logger(__name__, "train.log")
@@ -102,9 +111,9 @@ def evaluate(
 
 
 def train_fold(
-    fold_id: int,
-    patch_dir: str,
-    fold_sets: dict,
+    fold_id: int = -1,
+    patch_dir: str = TRAIN_PATCH_DIR,
+    fold_sets: dict = None,
     epochs: int = 5,
     batch_size: int = 32,
     lr: float = 1e-3,
@@ -124,23 +133,37 @@ def train_fold(
         lr: Learning rate
         model_name: Model class to be instantiated. Default is "customcnn"
     """
-    logger.info(f"Starting training for fold {fold_id}")
 
-    fold_data = fold_sets[fold_id]
+    if fold_sets:
+        logger.info(f"Starting training for fold {fold_id}")
+        fold_data = fold_sets[fold_id]
 
-    log_dir = f"outputs/logs/fold{fold_id}"
-    try:
-        os.makedirs(log_dir, exist_ok=True)
-    except Exception as e:
-        logger.exception(f"Failed to create log directory {log_dir}: {e}")
-        raise
-    train_csv_path = os.path.join(log_dir, "train.csv")
-    val_csv_path = os.path.join(log_dir, "val.csv")
-    fold_data["train"].to_csv(train_csv_path, index=False)
-    fold_data["val"].to_csv(val_csv_path, index=False)
+        log_dir = os.path.join(FOLDS_DIR, str(fold_id))
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+        except Exception as e:
+            logger.exception(f"Failed to create log directory {log_dir}: {e}")
+            raise
+        train_csv_path = os.path.join(log_dir, "train.csv")
+        val_csv_path = os.path.join(log_dir, "val.csv")
+        fold_data["train"].to_csv(train_csv_path, index=False)
+        fold_data["val"].to_csv(val_csv_path, index=False)
 
-    train_ds = GliomaPatchDataset(train_csv_path, patch_dir)
-    val_ds = GliomaPatchDataset(val_csv_path, patch_dir)
+        train_ds = GliomaPatchDataset(train_csv_path, patch_dir)
+        val_ds = GliomaPatchDataset(val_csv_path, patch_dir)
+    else:
+        logger.info(f"Starting training for the complete dataset")
+        log_dir = SUBMISSION_DIR
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+        except Exception as e:
+            logger.exception(f"Failed to create log directory {log_dir}: {e}")
+            raise
+        train_csv_path = os.path.join(TRAIN_PATCH_DIR, "patches_index.csv")
+        val_csv_path = os.path.join(TEST_PATCH_DIR, "patches_index.csv")
+
+        train_ds = GliomaPatchDataset(train_csv_path, TRAIN_PATCH_DIR)
+        val_ds = GliomaPatchDataset(val_csv_path, TEST_PATCH_DIR)
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size)
@@ -194,14 +217,17 @@ def train_fold(
             f"Epoch {epoch+1}/{epochs} completed in {time.time() - start_time:.2f}s"
         )
 
-    model_path = f"outputs/models/{model_name}_fold{fold_id}.pth"
-    try:
-        os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    except Exception as e:
-        logger.exception(
-            f"Failed to create model directory {os.path.dirname(model_path)}: {e}"
-        )
-        raise
+    if fold_sets is None:
+        model_path = os.path.join(MODELS_DIR, f"{model_name}.pth")
+        try:
+            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            torch.save(model.state_dict(), model_path)
+            logger.info(f"Saved model to {model_path}")
+        except Exception as e:
+            logger.exception(
+                f"Failed to create model directory {os.path.dirname(model_path)}: {e}"
+            )
+            raise
 
     try:
         metrics_df = pd.DataFrame(metrics)
@@ -209,47 +235,42 @@ def train_fold(
         metrics_df.to_csv(metrics_path, index=False)
         logger.info(f"Saved training metrics to {metrics_path}")
 
-        def plot_metric(metric_name, title, ylabel, file_path):
-            plt.figure()
-            plt.plot(
-                metrics_df["epoch"], metrics_df[f"train_{metric_name}"], label="Train"
-            )
-            plt.plot(
-                metrics_df["epoch"],
-                metrics_df[f"val_{metric_name}"],
-                label="Validation",
-            )
-            plt.title(title)
-            plt.xlabel("Epoch")
-            plt.ylabel(ylabel)
-            plt.legend()
-            plt.grid(True)
-            plt.savefig(file_path)
-            plt.close()
-
         plot_metric(
+            metrics_df,
             "loss",
             "Training vs Validation Loss",
             "Loss",
             os.path.join(log_dir, f"{model_name}_loss.png"),
         )
         plot_metric(
+            metrics_df,
             "acc",
             "Training vs Validation Accuracy",
             "Accuracy",
             os.path.join(log_dir, f"{model_name}_accuracy.png"),
         )
         plot_metric(
+            metrics_df,
             "f1",
             "Training vs Validation F1 Score",
             "F1 Score",
             os.path.join(log_dir, f"{model_name}_f1.png"),
         )
-
-        torch.save(model.state_dict(), model_path)
-        logger.info(f"Saved model to {model_path}")
     except Exception as e:
         logger.exception(f"Failed to save model or metrics: {e}")
+        raise
+
+    try:
+        validate(
+            model=model,
+            dataloader=val_loader,
+            output_dir=log_dir,
+            model_name=model_name,
+            device=device,
+            train_accuracy=train_acc,
+        )
+    except Exception as e:
+        logger.exception(f"Failed to validate model: {e}")
         raise
 
 
