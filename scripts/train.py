@@ -135,7 +135,7 @@ def train_fold(
     """
 
     if fold_sets:
-        logger.info(f"Starting training for fold {fold_id}")
+        logger.info(f"Starting training {model_name} for fold {fold_id}")
         fold_data = fold_sets[fold_id]
 
         log_dir = os.path.join(FOLDS_DIR, str(fold_id))
@@ -149,7 +149,9 @@ def train_fold(
         fold_data["train"].to_csv(train_csv_path, index=False)
         fold_data["val"].to_csv(val_csv_path, index=False)
 
-        train_ds = GliomaPatchDataset(train_csv_path, patch_dir)
+        train_ds = GliomaPatchDataset(
+            train_csv_path, patch_dir, apply_augmentation=True
+        )
         val_ds = GliomaPatchDataset(val_csv_path, patch_dir)
     else:
         logger.info(f"Starting training for the complete dataset")
@@ -162,7 +164,9 @@ def train_fold(
         train_csv_path = os.path.join(TRAIN_PATCH_DIR, "patches_index.csv")
         val_csv_path = os.path.join(TEST_PATCH_DIR, "patches_index.csv")
 
-        train_ds = GliomaPatchDataset(train_csv_path, TRAIN_PATCH_DIR)
+        train_ds = GliomaPatchDataset(
+            train_csv_path, TRAIN_PATCH_DIR, apply_augmentation=True
+        )
         val_ds = GliomaPatchDataset(val_csv_path, TEST_PATCH_DIR)
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
@@ -180,9 +184,15 @@ def train_fold(
     model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.1, patience=3
+    )
 
     metrics = []
+
+    early_stop_counter = 0
+    best_val_loss = float("inf")
 
     for epoch in range(epochs):
         start_time = time.time()
@@ -213,6 +223,22 @@ def train_fold(
         except Exception as e:
             logger.exception(f"Error during epoch {epoch+1}: {e}")
             continue
+
+        scheduler.step(val_loss)
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            early_stop_counter = 0
+        else:
+            early_stop_counter += 1
+
+        if early_stop_counter >= 5:
+            logger.info(f"Early stopping triggered at epoch {epoch + 1}")
+            break
+
+        current_lr = optimizer.param_groups[0]["lr"]
+        logger.info(f"Learning rate after epoch {epoch+1}: {current_lr}")
+
         logger.info(
             f"Epoch {epoch+1}/{epochs} completed in {time.time() - start_time:.2f}s"
         )

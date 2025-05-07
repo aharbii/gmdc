@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 
-from configs.constants import MODEL_NAMES, NUM_CLASSES
+from configs.constants import MODEL_NAMES, NUM_CLASSES, PATCH_SIZE
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -26,7 +26,9 @@ class CustomCNN(nn.Module):
         classifier (nn.Sequential): Fully connected layers for classification.
     """
 
-    def __init__(self, input_size: int = 64, num_classes: int = NUM_CLASSES) -> None:
+    def __init__(
+        self, input_size: int = PATCH_SIZE, num_classes: int = NUM_CLASSES
+    ) -> None:
         super(CustomCNN, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, padding=1),
@@ -75,27 +77,22 @@ class CustomCNN(nn.Module):
         return f"{self.__class__.__name__}(input=64x64x3, output={self.classifier[-1].out_features})"
 
 
-# Implementation of the revised CustomCNNv2 architecture with enhanced depth, additional layers,
-# dropout, and fully connected layers for increased capacity and regularization.
-
-
 class CustomCNNv2(nn.Module):
     """
     CustomCNNv2 - A deeper CNN architecture for glioma mitosis classification.
 
     This version incorporates additional convolutional layers, more pooling, and multiple
-    fully connected layers with dropout for regularization.
+    fully connected layers with dropout of (0.7) for increased regularization.
 
     Args:
-        input_size (int): Size of the input image (assumed square). Default is 64.
         num_classes (int): Number of output classes. Default is NUM_CLASSES.
 
     Attributes:
         features (nn.Sequential): Convolutional and pooling layers for feature extraction.
-        classifier (nn.Sequential): Fully connected layers for classification.
+        classifier (nn.Sequential): Fully connected layers with increased dropout for regularization.
     """
 
-    def __init__(self, input_size: int = 64, num_classes: int = NUM_CLASSES) -> None:
+    def __init__(self, num_classes: int = NUM_CLASSES) -> None:
         super(CustomCNNv2, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, padding=1),
@@ -126,13 +123,13 @@ class CustomCNNv2(nn.Module):
 
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.7),
             nn.Linear(1024, 512),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
+            nn.Dropout(0.7),
             nn.Linear(512, 256),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
+            nn.Dropout(0.7),
             nn.Linear(256, num_classes),
         )
 

@@ -14,7 +14,11 @@ from PIL import Image
 from torch.utils.data import Dataset
 import torchvision.transforms as T
 
-from configs.constants import LABEL_MAP
+from configs.constants import LABEL_MAP, PATCH_SIZE
+
+from utils.log_utils import get_logger
+
+logger = get_logger(__name__, "dataset.log")
 
 
 class GliomaPatchDataset(Dataset):
@@ -25,18 +29,33 @@ class GliomaPatchDataset(Dataset):
         index_csv (str): Path to the CSV containing filenames and labels.
         patches_dir (str): Directory where patch images are stored.
         transform (callable, optional): Transformations to apply on the images.
-        image_size (int): Desired image size for resizing (height, width). Default is 64.
+        image_size (int): Desired image size for resizing (height, width). Default is {PATCH_SIZE}.
+        apply_augmentation (bool): Whether to apply data augmentation. Default is False.
     """
 
     def __init__(
-        self, index_csv: str, patches_dir: str, transform=None, image_size: int = 64
+        self,
+        index_csv: str,
+        patches_dir: str,
+        image_size: int = PATCH_SIZE,
+        apply_augmentation: bool = False,
     ) -> None:
         self.data = pd.read_csv(index_csv)
         self.patches_dir = patches_dir
         self.label_map = LABEL_MAP
-        self.transform = transform or T.Compose(
-            [T.Resize((image_size, image_size)), T.ToTensor()]
-        )
+
+        base_transform = [T.Resize((image_size, image_size)), T.ToTensor()]
+        augment_transform = [
+            T.RandomHorizontalFlip(),
+            T.RandomRotation(degrees=15),
+            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+            T.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+        ]
+        if apply_augmentation:
+            logger.info("Applying data augmentation")
+            self.transform = T.Compose(augment_transform + base_transform)
+        else:
+            self.transform = T.Compose(base_transform)
 
     def __len__(self) -> int:
         """Return the number of samples in the dataset."""

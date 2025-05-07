@@ -45,4 +45,4 @@ MODEL_NAMES = [
     "vgg16_bn",
 ]
 
-SELECTED_MODEL_NAMES = ["customcnn", "customcnn_v2", "resnet50", "efficientnet_b2"]
+SELECTED_MODEL_NAMES = ["customcnn_v2", "resnet50", "efficientnet_b2"]

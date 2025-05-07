@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
-from configs.constants import SUBMISSION_DIR
+from configs.constants import PATCH_SIZE, SUBMISSION_DIR
 from utils.log_utils import get_logger
 from utils.plot_utils import plot_patches_distribution
 
@@ -95,14 +95,16 @@ def extract_patch(
     return patch
 
 
-def process_dataset(image_dir: str, output_dir: str, patch_size: int = 64) -> None:
+def process_dataset(
+    image_dir: str, output_dir: str, patch_size: int = PATCH_SIZE
+) -> None:
     """
     Process a dataset of images and annotations to extract centered patches.
 
     Args:
         image_dir (str): Path to directory containing images and JSON annotations.
         output_dir (str): Path to output directory for patches and CSV index.
-        patch_size (int): Size of the square patch to extract. Defaults to 64.
+        patch_size (int): Size of the square patch to extract. Defaults to {PATCH_SIZE}.
     """
     image_dir = Path(image_dir)
     output_dir = Path(output_dir)
@@ -161,6 +163,9 @@ def process_dataset(image_dir: str, output_dir: str, patch_size: int = 64) -> No
             logger.exception(f"Failed to process {json_path}: {e}")
 
     plot_patches_distribution(patches_data, SUBMISSION_DIR)
+    logger.info(
+        f"Dataset includes {patches_data['Mitosis']} mitosis images, and {patches_data['Non-mitosis']} non-mitosis images"
+    )
     csv_path = output_dir / "patches_index.csv"
     with open(csv_path, "w") as f:
         f.write("\n".join(index_lines))
@@ -184,7 +189,7 @@ if __name__ == "__main__":
         help="Directory to save extracted patches and index CSV.",
     )
     parser.add_argument(
-        "--patch_size", type=int, default=64, help="Size of each square patch."
+        "--patch_size", type=int, default=PATCH_SIZE, help="Size of each square patch."
     )
     args = parser.parse_args()
 

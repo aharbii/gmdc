@@ -180,7 +180,7 @@ def plot_val_metrics_json_comparison(folds_dir: str, fold: int):
     df = pd.DataFrame(data)
 
     plt.figure(figsize=(12, 6))
-    sns.barplot(data=df, x="Model", y="Score", hue="Metric", palette="Set2")
+    sns.barplot(data=df, x="Model", y="Score", hue="Metric", palette="viridis")
     plt.title(f"Fold {fold} - Validation Metrics Comparison per Model")
     plt.ylabel("Score")
     plt.xticks(rotation=45)
@@ -196,7 +196,7 @@ def plot_val_metrics_json_comparison(folds_dir: str, fold: int):
 
     acc_df = pd.DataFrame(acc)
     plt.figure(figsize=(12, 6))
-    sns.barplot(data=acc_df, x="Model", y="Score", hue="Metric", palette="Set2")
+    sns.barplot(data=acc_df, x="Model", y="Score", hue="Metric", palette="viridis")
     plt.title(f"Fold {fold} - Training vs Validation Accuracy")
     plt.ylabel("Score")
     plt.xticks(rotation=45)
@@ -250,7 +250,10 @@ def plot_patches_distribution(patches_data: dict, output_path: str) -> None:
     try:
         plt.figure(figsize=(10, 6))
         sns.barplot(
-            x=list(patches_data.keys()), y=list(patches_data.values()), palette="Set2"
+            x=list(patches_data.keys()),
+            y=list(patches_data.values()),
+            hue=patches_data.values(),
+            palette="viridis",
         )
         plt.title("Patches Distribution per Class")
         plt.xlabel("Class")
